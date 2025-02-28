@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <Encoder.h>
+#include <Arduino.h>
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
@@ -12,6 +13,11 @@ Encoder enc(pinA, pinB);
 
 int menuIndex = 0;
 long lastPosition = 0;
+
+int temp = 0;
+int vel = 0;
+int tempObj = 0;
+int velObj = 0;
 
 void setup()
 {
@@ -30,15 +36,30 @@ void setup()
     }
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print("Option 1");
+    lcd.print("> Temperatura");
     lcd.setCursor(0, 1);
-    lcd.print("Option 2");
+    lcd.print("Velocidad");
 }
 
 void loop()
 {
-    long position = enc.read();
+    handleMenuNavigation();
 
+    if (digitalRead(Ebutton) == LOW)
+    {
+        delay(50); // Debounce
+        while (digitalRead(Ebutton) == LOW)
+        {
+        }
+        handleMenuSelection();
+    }
+
+    delay(100);
+}
+
+void handleMenuNavigation()
+{
+    long position = enc.read();
     if (position != lastPosition)
     {
         if (position > lastPosition)
@@ -49,44 +70,135 @@ void loop()
         {
             menuIndex = 0;
         }
-
-        lcd.clear();
-        switch (menuIndex)
-        {
-        case 0:
-            lcd.setCursor(0, 0);
-            lcd.print(">TEMPERATURA");
-            lcd.setCursor(0, 1);
-            lcd.print("MOTOR");
-            break;
-        case 1:
-            lcd.setCursor(0, 0);
-            lcd.print("TEMPERATURA");
-            lcd.setCursor(0, 1);
-            lcd.print(">MOTOR");
-            break;
-        default:
-            break;
-        }
+        updateDisplay();
         lastPosition = position;
     }
-    if (digitalRead(Ebutton) == LOW)
+}
+
+void updateDisplay()
+{
+    lcd.clear();
+    switch (menuIndex)
     {
-        lcd.clear();
+    case 0:
         lcd.setCursor(0, 0);
-        switch (menuIndex)
-        {
-        case 0:
-            lcd.print("TEMPERATURA");
+        lcd.print("> Temperatura");
+        lcd.setCursor(0, 1);
+        lcd.print("Velocidad");
+        break;
+    case 1:
+        lcd.setCursor(0, 0);
+        lcd.print("Temperatura");
+        lcd.setCursor(0, 1);
+        lcd.print("> Velocidad");
+        break;
+    default:
+        break;
+    }
+}
+
+void handleMenuSelection()
+{
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    switch (menuIndex)
+    {
+    case 0:
+        lcd.print("Temperatura");
+        adjustValue(tempObj, 't');
+        break;
+    case 1:
+        lcd.print("Velocidad");
+        adjustValue(velObj, 'v');
+        break;
+    default:
+        break;
+    }
+}
+
+void adjustValue(int &value, char type) {
+    lcd.setCursor(0, 1);  // Posición inicial para mostrar el valor
+    lcd.print("    ");    // Limpia el área del valor anterior
+
+    // Muestra el valor inicial
+    lcd.setCursor(0, 1);
+    lcd.print(value);
+
+    // Muestra la unidad correspondiente
+    switch (type) {
+        case 't':  // Temperatura
+            lcd.print("°C");
             break;
-        case 1:
-            lcd.print("MOTOR");
+        case 'v':  // Velocidad
+            lcd.print("%");
+            drawProgressBar(value);  // Dibuja la barra de progreso
             break;
         default:
             break;
-        }
-        delay(1000);
     }
 
-    delay(100);
+    while (true) {
+        long position = enc.read();  // Lee la posición del encoder
+        if (position != lastPosition) {
+            if (position > lastPosition) {
+                if (value == (type == 't' ? 220 : 100)) {  // Límite superior
+                    value = (type == 't' ? 0 : 0);         // Reinicia al mínimo
+                } else {
+                    value++;
+                }
+            } else {
+                if (value <= (type == 't' ? 0 : 0)) {      // Límite inferior
+                    value = (type == 't' ? 220 : 100);     // Reinicia al máximo
+                } else {
+                    value--;
+                }
+            }
+
+            // Actualiza el valor en la pantalla
+            lcd.setCursor(0, 1);
+            lcd.print("    ");  // Limpia el área del valor anterior
+            lcd.setCursor(0, 1);
+            lcd.print(value);
+
+            // Muestra la unidad y la barra de progreso (si es velocidad)
+            switch (type) {
+                case 't':
+                    lcd.print("C");
+                    break;
+                case 'v':
+                    lcd.print("%");
+                    drawProgressBar(value);  // Actualiza la barra de progreso
+                    break;
+                default:
+                    break;
+            }
+
+            lastPosition = position;  // Actualiza la última posición del encoder
+        }
+
+        // Si se presiona el botón, guarda el valor y sale del bucle
+        if (digitalRead(Ebutton) == LOW) {
+            delay(50);  // Debounce
+            while (digitalRead(Ebutton) == LOW) {}  // Espera a que se suelte el botón
+            lcd.clear();
+            lcd.print("Guardado!");
+            delay(1000);  // Muestra el mensaje por 1 segundo
+            break;
+        }
+    }
+}
+
+// Función para dibujar una barra de progreso horizontal
+void drawProgressBar(int percent) {
+    const int barLength = 16;  // Longitud máxima de la barra (ajusta según tu LCD)
+    int filledLength = map(percent, 0, 100, 0, barLength);  // Calcula la longitud llena
+
+    lcd.setCursor(0, 2);  // Posición para la barra de progreso (segunda fila)
+    for (int i = 0; i < barLength; i++) {
+        if (i < filledLength) {
+            lcd.write(255);  // Carácter de bloque lleno (depende de tu LCD)
+        } else {
+            lcd.write(' ');  // Espacio en blanco para la parte vacía
+        }
+    }
 }
