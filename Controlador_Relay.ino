@@ -63,8 +63,6 @@ void setup()
     lcd.init();
     lcd.createChar(0, degree);
     lcd.backlight();
-    myPID.SetMode(AUTOMATIC);
-    myPID.SetOutputLimits(0, 255);
 
 
     lcd.clear();
