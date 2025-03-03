@@ -22,8 +22,8 @@ RePETeR es un proyecto basado en Arduino que convierte botellas de PET en filame
 ## Esquema de Conexión
 
 - **RELAY**: Pin 6
-- **POT**: Pin A0
-- **THERM**: Pin A1
+- **ENCODER**: Pin 2 y 3, BTN: Pin 4
+- **THERM**: Pin A0
 - **Pantalla SSD1306**: Conexión I2C (SDA, SCL)
 
 ## Funcionamiento
