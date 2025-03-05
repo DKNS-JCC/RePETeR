@@ -41,7 +41,7 @@ double tempObj = 25;
 double velObj = 25;
 
 unsigned long tiempoAnterior = 0;
-unsigned long interval = 1000;
+unsigned long interval = 750;
 unsigned long currentMillis = 0;
 
 double output;
@@ -154,7 +154,7 @@ void loop()
         tiempoAnterior = currentMillis;
         temp = getTemp();
         myPID.Compute(); // Calcula el nuevo valor de salida
-        if (temp >=210)
+        if (temp >=200)
         {
             analogWrite(relay, 0); 
         }
@@ -226,10 +226,24 @@ void loop()
     }
 }
 
-int getTemp()
-{
+double getTemp() {
     int raw = analogRead(thermistor);
-    float R = THERMISTOR_R * ((1023.0 / raw) - 1.0);
-    float T = 1.0 / (1.0 / (THERMISTOR_T + 273.15) + 1.0 / THERMISTOR_B * log(R / 10000.0));
+    
+    // Evitar división por cero si el valor leído es 0
+    if (raw == 0) {
+        return -273.15;  // Retorna el cero absoluto como error
+    }
+    
+    // Calcular la resistencia del termistor
+    float invRaw = 1.0 / raw;  // Optimización: calcular una vez la inversa
+    float R = THERMISTOR_R * (1023.0 * invRaw - 1.0);
+    
+    // Calcular la temperatura en Kelvin usando la ecuación de Steinhart-Hart
+    float logR = log(R / 10000.0);  // Precalcular log(R/10000) para eficiencia
+    float invT = 1.0 / (THERMISTOR_T + 273.15) + logR / THERMISTOR_B;
+    float T = 1.0 / invT;
+    
+    // Convertir a Celsius
     return T - 273.15;
 }
+
