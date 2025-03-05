@@ -16,6 +16,10 @@ const int Ebutton = 4;
 const int thermistor = A0;
 const int relay = 6;
 
+const int ENA = 5;
+const int IN1 = 7;
+const int IN2 = 8;
+
 Encoder enc(pinA, pinB);
 
 long lastPosition = 0;
@@ -37,11 +41,11 @@ double tempObj = 25;
 double velObj = 25;
 
 unsigned long tiempoAnterior = 0;
-unsigned long interval = 500;
+unsigned long interval = 1000;
 unsigned long currentMillis = 0;
 
 double output;
-double Kp = 2.0, Ki = 5.0, Kd = 1.0;  // Ajustable
+double Kp = 1.25, Ki = 0.5, Kd = 2.0; // Ajustable
 PID myPID(&temp, &output, &tempObj, Kp, Ki, Kd, DIRECT);
 
 // Crear caracter personalizado para el símbolo de grados
@@ -57,19 +61,23 @@ byte degree[] = {
 
 void setup()
 {
-    //PIN SETUP
+    // PIN SETUP
     pinMode(Ebutton, INPUT_PULLUP);
     pinMode(relay, OUTPUT);
 
-    //INICIALIZACION DE LIBRERIAS
+    // INICIALIZACION DE LIBRERIAS
     Wire.begin();
     enc.write(0); // Reset
     lcd.init();
+
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    Serial.begin(9600);
+
     lcd.createChar(0, degree);
     lcd.backlight();
     myPID.SetMode(AUTOMATIC);
     myPID.SetOutputLimits(0, 255);
-
 
     lcd.clear();
     lcd.setCursor(0, 0);
@@ -92,7 +100,8 @@ void setup()
     lcd.print(" %");
 }
 
-void actualizarLCD() {
+void actualizarLCD()
+{
     lcd.setCursor(5, 0);
     lcd.print("        ");
     lcd.setCursor(5, 0);
@@ -102,22 +111,31 @@ void actualizarLCD() {
     lcd.write(byte(0));
 
     lcd.setCursor(0, 1);
-    if (state == 0) {
-        if (menuIndex == 0) {
+    if (state == 0)
+    {
+        if (menuIndex == 0)
+        {
             lcd.print("> Temp ");
             lcd.print(tempObj);
             lcd.write(byte(0));
-        } else {
+        }
+        else
+        {
             lcd.print("> Vel ");
             lcd.print(velObj);
             lcd.print(" %");
         }
-    } else if (state == 1) {
-        if (menuIndex == 0) {
+    }
+    else if (state == 1)
+    {
+        if (menuIndex == 0)
+        {
             lcd.print("> Temp ");
             lcd.print(tempObj);
             lcd.write(byte(0));
-        } else {
+        }
+        else
+        {
             lcd.print("> Vel ");
             lcd.print(velObj);
             lcd.print(" %");
@@ -125,52 +143,83 @@ void actualizarLCD() {
     }
 }
 
-void loop() {
+
+void loop()
+{
     currentMillis = millis();
 
     // Actualización de temperatura cada cierto tiempo
-    if (currentMillis - tiempoAnterior > interval) {
+    if (currentMillis - tiempoAnterior > interval)
+    {
         tiempoAnterior = currentMillis;
         temp = getTemp();
-        myPID.Compute();  // Calcula el nuevo valor de salida
-        analogWrite(relay, output);  // Envía el valor PWM al relé
+        myPID.Compute(); // Calcula el nuevo valor de salida
+        if (temp >=210)
+        {
+            analogWrite(relay, 0); 
+        }
+        else 
+        {
+            analogWrite(relay, output); 
+        }
+        
+        Serial.println(output);
 
         actualizarLCD();
     }
 
     // Cambio de estado con el botón
-    if (digitalRead(Ebutton) == LOW) {
-        delay(200);  // Anti-rebote
+    if (digitalRead(Ebutton) == LOW)
+    {
+        delay(200); // Anti-rebote
         state = (state + 1) % 2;
         actualizarLCD();
     }
 
     // Manejo del encoder
     newPosition = enc.read();
-    if (newPosition - lastPosition > 2) {
+    if (newPosition - lastPosition > 2)
+    {
         lastPosition = newPosition;
 
-        if (state == 0) {
-            menuIndex = (menuIndex + 1) % 2;  // Alternar entre 0 y 1
-        } else if (state == 1) {
-            if (menuIndex == 0) {
-                tempObj = min(tempObj + 1, 220);
-            } else {
-                velObj = min(velObj + 1, 100);
+        if (state == 0)
+        {
+            menuIndex = (menuIndex + 1) % 2; // Alternar entre 0 y 1
+        }
+        else if (state == 1)
+        {
+            if (menuIndex == 0)
+            {
+                tempObj = min(tempObj + 10, 220);
+            }
+            else
+            {
+                velObj = min(velObj + 5, 100);
+                int mappeed = map(velObj, 0, 100, 0, 255);
+                analogWrite(ENA, mappeed);
             }
         }
         actualizarLCD();
-
-    } else if (newPosition - lastPosition < -2) {
+    }
+    else if (newPosition - lastPosition < -2)
+    {
         lastPosition = newPosition;
 
-        if (state == 0) {
-            menuIndex = (menuIndex - 1 < 0) ? 1 : 0;  // Alternar entre 0 y 1
-        } else if (state == 1) {
-            if (menuIndex == 0) {
-                tempObj = max(tempObj - 1, 0);
-            } else {
-                velObj = max(velObj - 1, 0);
+        if (state == 0)
+        {
+            menuIndex = (menuIndex - 1 < 0) ? 1 : 0; // Alternar entre 0 y 1
+        }
+        else if (state == 1)
+        {
+            if (menuIndex == 0)
+            {
+                tempObj = max(tempObj - 10, 0);
+            }
+            else
+            {
+                velObj = max(velObj - 5, 0);
+                int mappeed = map(velObj, 0, 100, 0, 255);
+                analogWrite(ENA, mappeed);
             }
         }
         actualizarLCD();
