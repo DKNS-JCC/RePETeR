@@ -154,7 +154,7 @@ void loop()
         tiempoAnterior = currentMillis;
         temp = getTemp();
         myPID.Compute(); // Calcula el nuevo valor de salida
-        if (temp >=200)
+        if (temp >=215)
         {
             analogWrite(relay, 0); 
         }
